@@ -6,6 +6,7 @@
 import cv2
 import mediapipe as mp
 import time
+import math
 from pathlib import Path
 
 
@@ -54,13 +55,65 @@ HAND_CONNECTIONS = [
 ]
 
 
+# STEP 4.1: Normalize hand landmarks
+
+def normalize_landmarks(hand_landmarks):
+
+    # Get wrist landmark (Landmark 0)
+
+    wrist = hand_landmarks[0]
+
+    wrist_x = wrist.x
+    wrist_y = wrist.y
+    wrist_z = wrist.z
+
+    # Calculate distances from wrist
+
+    distances = []
+
+    for landmark in hand_landmarks:
+
+        distance = math.hypot(
+            landmark.x - wrist_x,
+            landmark.y - wrist_y
+        )
+
+        distances.append(distance)
+
+    # Find largest distance
+
+    scale = max(distances)
+
+    # Avoid division by zero
+
+    if scale == 0:
+        scale = 1.0
+
+    # Calculate normalized coordinates
+
+    normalized_points = []
+
+    for landmark in hand_landmarks:
+
+        normalized_x = (landmark.x - wrist_x) / scale
+        normalized_y = (landmark.y - wrist_y) / scale
+        normalized_z = (landmark.z - wrist_z) / scale
+
+        normalized_points.append({
+            "x": normalized_x,
+            "y": normalized_y,
+            "z": normalized_z
+        })
+
+    return normalized_points
+
+
 # STEP 5: Open the webcam
 
 camera = cv2.VideoCapture(0)
 
 if not camera.isOpened():
     raise RuntimeError("Could not open webcam.")
-
 
 print("GestureBridge coordinate extraction started!")
 print("Press P to print landmark coordinates.")
@@ -114,8 +167,6 @@ try:
                 timestamp_ms
             )
 
-            # Count detected hands
-
             detected_hands = len(results.hand_landmarks)
 
             # Create fresh storage for this frame
@@ -147,30 +198,8 @@ try:
                 for hand_index, hand_landmarks in enumerate(
                     results.hand_landmarks
                 ):
-
-                    # Extract and store 21 landmarks
-
-                    landmark_points = []
-
-                    for landmark in hand_landmarks:
-
-                        landmark_points.append({
-                            "x": landmark.x,
-                            "y": landmark.y,
-                            "z": landmark.z
-                        })
-
-                    # Store this hand separately
-
-                    hand_data.append({
-                        "hand_index": hand_index,
-                        "hand_label": "Hand " + str(hand_index + 1),
-                        "landmarks": landmark_points
-                    })
-
-                    # Get handedness information
-
-                    hand_label = "Unknown"
+                                        # Get handedness information
+                    hand_label = f"Hand {hand_index + 1}"
 
                     if results.handedness:
 
@@ -188,6 +217,33 @@ try:
 
                         else:
                             hand_label = detected_label
+
+                    # Extract original landmarks
+
+                    landmark_points = []
+
+                    for landmark in hand_landmarks:
+
+                        landmark_points.append({
+                            "x": landmark.x,
+                            "y": landmark.y,
+                            "z": landmark.z
+                        })
+
+                    # Generate normalized landmarks
+
+                    normalized_points = normalize_landmarks(
+                        hand_landmarks
+                    )
+
+                    # Store original and normalized coordinates
+
+                    hand_data.append({
+                        "hand_index": hand_index,
+                        "hand_label": hand_label,
+                        "landmarks": landmark_points,
+                        "normalized_landmarks": normalized_points
+                    })
 
                     # Draw hand connections
 
@@ -283,8 +339,27 @@ try:
                             len(hand["landmarks"])
                         )
 
+                        # Print original coordinates
+
+                        print("\nORIGINAL COORDINATES")
+
                         for index, point in enumerate(
                             hand["landmarks"]
+                        ):
+
+                            print(
+                                f"Landmark {index:02d}: "
+                                f"X={point['x']:.4f}, "
+                                f"Y={point['y']:.4f}, "
+                                f"Z={point['z']:.4f}"
+                            )
+
+                        # Print normalized coordinates
+
+                        print("\nNORMALIZED COORDINATES")
+
+                        for index, point in enumerate(
+                            hand["normalized_landmarks"]
                         ):
 
                             print(
@@ -301,8 +376,7 @@ try:
 
             if key == ord('q'):
                 break
-
-
+            
 finally:
 
     # Release webcam and close windows
