@@ -110,6 +110,10 @@ POSE_CONNECTIONS = [
 
 IMPORTANT_POSE_POINTS = {
     0: "Nose",
+    7: "Left Ear",
+    8: "Right Ear",
+    9: "Left Mouth",
+    10: "Right Mouth",
     11: "Left Shoulder",
     12: "Right Shoulder",
     13: "Left Elbow",
@@ -349,7 +353,7 @@ try:
 
                     cv2.putText(
                         frame,
-                        f"Pose points: {len(visible_pose_points)}/7",
+                        f"Pose points: {len(visible_pose_points)}/11",
                         (20, 95),
                         cv2.FONT_HERSHEY_SIMPLEX,
                         0.7,
